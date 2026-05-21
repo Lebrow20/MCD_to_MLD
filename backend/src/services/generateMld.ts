@@ -109,11 +109,11 @@ function applyRelationship(
 
   // 1-N : on met la FK sur le côté "N"
   if (aMax === "n" && bMax !== "n") {
-    addFk(fromOneEnd = bEnd, toManyEnd = aEnd);
+    addFk(bEnd, aEnd);
     return;
   }
   if (aMax !== "n" && bMax === "n") {
-    addFk(fromOneEnd = aEnd, toManyEnd = bEnd);
+    addFk(aEnd, bEnd);
     return;
   }
 
