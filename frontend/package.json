@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@mcd-to-mld/shared": "workspace:*",
+    "@mcd-to-mld/shared": "file:../shared",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

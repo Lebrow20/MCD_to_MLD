@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@mcd-to-mld/shared": "workspace:*",
+    "@mcd-to-mld/shared": "file:../shared",
     "cors": "^2.8.5",
     "express": "^4.19.2"
   },

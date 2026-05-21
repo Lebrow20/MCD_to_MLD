@@ -1,9 +1,12 @@
 {
   "name": "mcd-to-mld",
   "private": true,
-  "workspaces": ["backend", "frontend", "shared"],
+  "workspaces": {
+    "packages": ["backend", "frontend", "shared"]
+  },
   "scripts": {
-    "dev": "npm run dev -w backend & npm run dev -w frontend",
-    "build": "npm run build -w shared && npm run build -w backend && npm run build -w frontend"
+    "install:clean": "rm -rf node_modules package-lock.json && npm install",
+    "dev": "npm run dev -w @mcd-to-mld/backend & npm run dev -w @mcd-to-mld/frontend",
+    "build": "npm run build -w @mcd-to-mld/shared && npm run build -w @mcd-to-mld/backend && npm run build -w @mcd-to-mld/frontend"
   }
 }
