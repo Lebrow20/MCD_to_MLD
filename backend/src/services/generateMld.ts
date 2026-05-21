@@ -1,30 +1,30 @@
 import type { McdModel, McdRelationship, MldModel, MldTable } from "@mcd-to-mld/shared";
 import { toSnakeCase } from "../utils/naming.js";
 
-function getPk(entity: { name: string; attributes: { name: string; isPrimaryKey?: boolean; type: string; isNullable?: boolean }[] }) {
-  const pk = entity.attributes.filter(a => a.isPrimaryKey);
+function getPk(entity: {
+  name: string;
+  attributes: { name: string; isPrimaryKey?: boolean; type: string; isNullable?: boolean }[];
+}) {
+  const pk = entity.attributes.filter((a) => a.isPrimaryKey);
   if (pk.length === 0) throw new Error(`Entity ${entity.name} has no primary key.`);
-  if (pk.length > 1) {
-    // on supporte PK composite, mais la génération FK V1 prendra la 1ère colonne
-  }
   return pk;
 }
 
 export function generateMld(mcd: McdModel): MldModel {
   const warnings: string[] = [];
 
-  const entitiesById = new Map(mcd.entities.map(e => [e.id, e]));
+  const entitiesById = new Map(mcd.entities.map((e) => [e.id, e]));
 
-  const tables: MldTable[] = mcd.entities.map(e => {
+  const tables: MldTable[] = mcd.entities.map((e) => {
     const tableName = toSnakeCase(e.name);
 
-    const columns = e.attributes.map(a => ({
+    const columns = e.attributes.map((a) => ({
       name: toSnakeCase(a.name),
       type: a.type,
       nullable: a.isPrimaryKey ? false : (a.isNullable ?? true)
     }));
 
-    const pk = getPk(e).map(a => toSnakeCase(a.name));
+    const pk = getPk(e).map((a) => toSnakeCase(a.name));
 
     const unique: string[][] = [];
     for (const a of e.attributes) {
@@ -42,7 +42,7 @@ export function generateMld(mcd: McdModel): MldModel {
 
   const tableByEntityId = new Map<string, MldTable>();
   for (const e of mcd.entities) {
-    const t = tables.find(tt => tt.name === toSnakeCase(e.name))!;
+    const t = tables.find((tt) => tt.name === toSnakeCase(e.name))!;
     tableByEntityId.set(e.id, t);
   }
 
@@ -64,14 +64,11 @@ function applyRelationship(
   const aEntity = entitiesById.get(aEnd.entityId)!;
   const bEntity = entitiesById.get(bEnd.entityId)!;
 
-  const aMax = aEnd.max;
-  const bMax = bEnd.max;
-
   const aTable = tableByEntityId.get(aEnd.entityId)!;
   const bTable = tableByEntityId.get(bEnd.entityId)!;
 
   // N-N
-  if (aMax === "n" && bMax === "n") {
+  if (aEnd.max === "n" && bEnd.max === "n") {
     const joinName = `${aTable.name}_${bTable.name}`;
     const aPk = getPk(aEntity)[0];
     const bPk = getPk(bEntity)[0];
@@ -84,7 +81,7 @@ function applyRelationship(
       columns: [
         { name: aFkCol, type: aPk.type, nullable: false },
         { name: bFkCol, type: bPk.type, nullable: false },
-        ...rel.attributes.map(att => ({
+        ...rel.attributes.map((att) => ({
           name: toSnakeCase(att.name),
           type: att.type,
           nullable: att.isNullable ?? true
@@ -98,34 +95,33 @@ function applyRelationship(
       ]
     };
 
-    // min=1 côté participation => contraintes avancées => warning
     if (aEnd.min === 1 || bEnd.min === 1) {
-      warnings.push(`Relationship "${rel.name}" is N-N with min=1 participation; enforcing it may require additional constraints (not generated in V1).`);
+      warnings.push(
+        `Relationship "${rel.name}" is N-N with min=1 participation; enforcing it may require additional constraints (not generated in V1).`
+      );
     }
 
     tables.push(joinTable);
     return;
   }
 
-  // 1-N : on met la FK sur le côté "N"
-  if (aMax === "n" && bMax !== "n") {
-    addFk(fromOneEnd = bEnd, toManyEnd = aEnd);
+  // 1-N : FK sur le côté N
+  if (aEnd.max === "n" && bEnd.max !== "n") {
+    addFk(bEnd, aEnd);
     return;
   }
-  if (aMax !== "n" && bMax === "n") {
-    addFk(fromOneEnd = aEnd, toManyEnd = bEnd);
+  if (aEnd.max !== "n" && bEnd.max === "n") {
+    addFk(aEnd, bEnd);
     return;
   }
 
   // 1-1
-  // choix simple: FK sur le côté le plus "obligatoire" (min=1), sinon côté B
   const chooseFkOnA = aEnd.min === 1 && bEnd.min === 0;
   const fkOwnerEnd = chooseFkOnA ? aEnd : bEnd;
   const referencedEnd = chooseFkOnA ? bEnd : aEnd;
 
-  const fkOwnerEntity = entitiesById.get(fkOwnerEnd.entityId)!;
-  const referencedEntity = entitiesById.get(referencedEnd.entityId)!;
   const fkOwnerTable = tableByEntityId.get(fkOwnerEnd.entityId)!;
+  const referencedEntity = entitiesById.get(referencedEnd.entityId)!;
   const referencedTable = tableByEntityId.get(referencedEnd.entityId)!;
 
   const refPk = getPk(referencedEntity)[0];
@@ -142,17 +138,14 @@ function applyRelationship(
     references: { table: referencedTable.name, columns: [toSnakeCase(refPk.name)] }
   });
 
-  // UNIQUE pour 1-1
   fkOwnerTable.unique.push([fkColName]);
 
   function addFk(fromOneEnd: typeof aEnd, toManyEnd: typeof aEnd) {
     const oneEntity = entitiesById.get(fromOneEnd.entityId)!;
-    const manyEntity = entitiesById.get(toManyEnd.entityId)!;
     const oneTable = tableByEntityId.get(fromOneEnd.entityId)!;
     const manyTable = tableByEntityId.get(toManyEnd.entityId)!;
 
     const onePk = getPk(oneEntity)[0];
-
     const fkColName = `${oneTable.name}_id`;
 
     manyTable.columns.push({
